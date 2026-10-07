@@ -1,6 +1,7 @@
 # Payments Service
 
 Test assignment for the Python Developer position at MKK Basic.
+Task description: [Тестовое PYTHON .pdf](./Тестовое%20PYTHON%20.pdf)
 
 A small service that accepts payments over HTTP, processes them asynchronously through an
 emulated payment gateway and reports the result to the merchant's webhook.
