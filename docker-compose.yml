@@ -38,3 +38,10 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
+
+  webhook-mock-server:
+    build: .
+    profiles: [mock]
+    command: ["uvicorn", "webhook_mock_server.main:app", "--host", "0.0.0.0", "--port", "9000", "--no-access-log"]
+    ports:
+      - "9000:9000"

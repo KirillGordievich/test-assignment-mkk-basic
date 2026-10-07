@@ -1,4 +1,4 @@
-SRC        := app/ tests/ migrations/
+SRC        := app/ webhook_mock_server/ tests/ migrations/
 PYTEST     := uv run python -m pytest
 INFRA      := docker compose -f docker-compose.infra.yml
 service    ?=
@@ -21,7 +21,7 @@ install: ## Install dependencies, including dev
 
 ##@ Local run (needs `make infra` and `make migrate`)
 
-.PHONY: api relay consumer
+.PHONY: api relay consumer webhook-mock-server
 api: ## Run the API with autoreload
 	uv run uvicorn app.api.main:app --reload --no-access-log
 
@@ -30,6 +30,9 @@ relay: ## Run the outbox relay
 
 consumer: ## Run the payments consumer
 	uv run faststream run app.worker.consumer:app
+
+webhook-mock-server: ## Run a local webhook mock server that logs incoming webhooks (port 9000)
+	uv run uvicorn webhook_mock_server.main:app --port 9000 --no-access-log
 
 ##@ Code quality
 
@@ -46,7 +49,7 @@ format: ## Format code with ruff
 	uv run ruff format $(SRC)
 
 mypy: ## Type-check with mypy
-	uv run mypy app/
+	uv run mypy app/ webhook_mock_server/
 
 ##@ Tests
 
@@ -93,18 +96,22 @@ infra-down: ## Stop postgres and rabbitmq
 
 ##@ Docker: full app
 
-.PHONY: build up down restart logs
+.PHONY: build up up-mock down restart logs
 build: ## Build the app image
 	docker compose build
 
 up: ## Start the whole app
 	docker compose up -d
 
+up-mock: ## Start the whole app with the webhook mock server
+	docker compose --profile mock up -d
+
+# --profile mock: plain `down` leaves the mock server running and can't remove the network.
 down: ## Stop the whole app
-	docker compose down
+	docker compose --profile mock down
 
 restart: ## Rebuild and restart the whole app
-	docker compose down
+	docker compose --profile mock down
 	docker compose up -d --build
 
 logs: ## Follow logs (all services or `make logs service=api`)
