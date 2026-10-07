@@ -5,7 +5,7 @@ import pytest
 
 from app.services import payment_gateway
 from app.services.exc import PaymentProcessingError
-from app.services.payment_gateway import PaymentGateway
+from app.services.payment_gateway import GatewayPaymentStatus, PaymentGateway
 
 SUCCESS, FAILURE = 0.9, 0.0  # random.random() values against a 0.5 failure rate
 PAYMENT_1, PAYMENT_2 = uuid.uuid4(), uuid.uuid4()
@@ -54,3 +54,9 @@ async def test_different_payments_are_processed_separately(monkeypatch: pytest.M
     await gateway.process_payment(PAYMENT_1)
     with pytest.raises(PaymentProcessingError):
         await gateway.process_payment(PAYMENT_2)
+
+
+async def test_status_lookup_reports_payment_not_found() -> None:
+    assert await _gateway(failure_rate=0).get_payment_status(PAYMENT_1) == (
+        GatewayPaymentStatus.NOT_FOUND
+    )

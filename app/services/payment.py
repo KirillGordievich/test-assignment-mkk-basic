@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import timedelta
 
 from app.db import Payment, PaymentStatus
 from app.models import PaymentCreate
@@ -46,10 +47,7 @@ class PaymentService:
             )
             return existing
 
-        self._outbox_repo.create(
-            routing_key=NEW_PAYMENTS_ROUTING_KEY,
-            payload={"payment_id": str(payment.id)},
-        )
+        self._enqueue(payment.id)
         logger.info(
             "Payment %s created: %s %s (Idempotency-Key %r)",
             payment.id,
@@ -69,6 +67,28 @@ class PaymentService:
     async def mark_failed(self, payment_id: uuid.UUID) -> Payment:
         """Mark payment as FAILED after retry exhaustion."""
         return await self._finalize(payment_id, PaymentStatus.FAILED)
+
+    async def get_expired_ids(self, ttl: timedelta, limit: int) -> list[uuid.UUID]:
+        """Ids of payments still pending after ``ttl``, e.g. the DB was down when retries
+        ran out.
+        """
+        return await self._payment_repo.get_expired_pending_ids(ttl, limit)
+
+    async def finalize_expired(self, payment_id: uuid.UUID, status: PaymentStatus) -> bool:
+        """Move an expired payment to ``status`` and enqueue it again: the consumer finds it
+        finalized and only delivers the webhook, with its usual retries. Returns False if the
+        payment was finalized meanwhile.
+        """
+        if await self._payment_repo.set_status(payment_id, status) is None:
+            return False
+        self._enqueue(payment_id)
+        return True
+
+    def _enqueue(self, payment_id: uuid.UUID) -> None:
+        self._outbox_repo.create(
+            routing_key=NEW_PAYMENTS_ROUTING_KEY,
+            payload={"payment_id": str(payment_id)},
+        )
 
     async def _finalize(self, payment_id: uuid.UUID, status: PaymentStatus) -> Payment:
         """Move a pending payment to a final status. A payment finalized by an earlier

@@ -11,7 +11,7 @@ service    ?=
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
 		/^##@/ {printf "\n\033[1m%s\033[0m\n", substr($$0, 5)} \
-		/^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+		/^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 ##@ Setup
 
@@ -21,15 +21,18 @@ install: ## Install dependencies, including dev
 
 ##@ Local run (needs `make infra` and `make migrate`)
 
-.PHONY: api relay consumer webhook-mock-server
+.PHONY: api outbox-relay-worker consumer-worker pending-expiry-worker webhook-mock-server
 api: ## Run the API with autoreload
 	uv run uvicorn app.api.main:app --reload --no-access-log
 
-relay: ## Run the outbox relay
+outbox-relay-worker: ## Run the outbox relay
 	uv run faststream run app.worker.outbox_relay:app
 
-consumer: ## Run the payments consumer
+consumer-worker: ## Run the payments consumer
 	uv run faststream run app.worker.consumer:app
+
+pending-expiry-worker: ## Run the job that fails payments stuck in pending
+	uv run python -m app.worker.pending_expiry
 
 webhook-mock-server: ## Run a local webhook mock server that logs incoming webhooks (port 9000)
 	uv run uvicorn webhook_mock_server.main:app --port 9000 --no-access-log

@@ -126,7 +126,7 @@ async def process_payment(
 
 async def _give_up(processor: PaymentProcessor, payment_id: uuid.UUID) -> None:
     """Mark the payment FAILED. If the DB is still down, the error rejects the message to
-    the DLQ anyway and the payment stays pending until the message is replayed.
+    the DLQ anyway and the payment stays pending until pending expiry fails it.
     """
     try:
         payment = await processor.fail(payment_id)

@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, select, update
@@ -52,3 +53,15 @@ class PaymentRepository:
             .returning(Payment)
         )
         return result.scalar_one_or_none()
+
+    async def get_expired_pending_ids(self, ttl: timedelta, limit: int) -> list[uuid.UUID]:
+        result = await self._session.scalars(
+            select(Payment.id)
+            .where(
+                Payment.status == PaymentStatus.PENDING,
+                Payment.created_at < func.now() - ttl,
+            )
+            .order_by(Payment.created_at)
+            .limit(limit)
+        )
+        return list(result.all())
