@@ -10,12 +10,11 @@ from app.services.payment import PaymentService
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    async with session_factory() as session:
-        async with session.begin():
-            yield session
+    async with session_factory() as session, session.begin():
+        yield session
 
 
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
+SessionDep = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 
 async def get_payment_repo(session: SessionDep) -> PaymentRepository:

@@ -1,0 +1,40 @@
+include:
+  - docker-compose.infra.yml
+
+x-app: &app
+  build: .
+  env_file: .env-docker
+
+services:
+  migrations:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  outbox-relay:
+    <<: *app
+    command: ["faststream", "run", "app.worker.outbox_relay:app"]
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  consumer:
+    <<: *app
+    command: ["faststream", "run", "app.worker.consumer:app"]
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy

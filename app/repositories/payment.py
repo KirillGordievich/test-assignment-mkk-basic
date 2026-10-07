@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,10 +38,17 @@ class PaymentRepository:
         )
 
     async def get_by_idempotency_key(self, key: str) -> Payment:
-        result = await self._session.execute(
-            select(Payment).where(Payment.idempotency_key == key)
-        )
+        result = await self._session.execute(select(Payment).where(Payment.idempotency_key == key))
         return result.scalar_one()
 
     async def get_by_id(self, payment_id: uuid.UUID) -> Payment | None:
         return await self._session.get(Payment, payment_id)
+
+    async def set_status(self, payment_id: uuid.UUID, status: PaymentStatus) -> Payment | None:
+        result = await self._session.execute(
+            update(Payment)
+            .where(Payment.id == payment_id, Payment.status == PaymentStatus.PENDING)
+            .values(status=status, processed_at=func.now())
+            .returning(Payment)
+        )
+        return result.scalar_one_or_none()

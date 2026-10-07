@@ -1,4 +1,3 @@
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -16,8 +15,6 @@ from app.models import HealthResponse
 
 setup_logging()
 
-logger = logging.getLogger(__name__)
-
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -26,7 +23,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.error("Unhandled error for %s %s: %s", request.method, request.url.path, exc)
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 

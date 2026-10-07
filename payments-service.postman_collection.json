@@ -1,0 +1,187 @@
+{
+  "info": {
+    "name": "Payments Service",
+    "description": "Run in order: Create Payment stores payment_id and idempotency_key, the following requests reuse them.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Create Payment",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set('idempotency_key', pm.variables.replaceIn('{{$randomUUID}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+              "const json = pm.response.json();",
+              "pm.test('status is pending', () => pm.expect(json.status).to.eql('pending'));",
+              "pm.collectionVariables.set('payment_id', json.payment_id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-Key", "value": "{{api_key}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotency_key}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": \"100.00\",\n  \"currency\": \"RUB\",\n  \"description\": \"Test payment\",\n  \"metadata\": {\"order_id\": \"123\"},\n  \"webhook_url\": \"{{webhook_url}}\"\n}"
+        },
+        "url": "{{base_url}}/api/v1/payments"
+      }
+    },
+    {
+      "name": "Get Payment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('same payment', () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('payment_id')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "url": "{{base_url}}/api/v1/payments/{{payment_id}}"
+      }
+    },
+    {
+      "name": "Create Payment — replay (same key, same body)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+              "pm.test('same payment_id', () => pm.expect(pm.response.json().payment_id).to.eql(pm.collectionVariables.get('payment_id')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-Key", "value": "{{api_key}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotency_key}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": \"100.00\",\n  \"currency\": \"RUB\",\n  \"description\": \"Test payment\",\n  \"metadata\": {\"order_id\": \"123\"},\n  \"webhook_url\": \"{{webhook_url}}\"\n}"
+        },
+        "url": "{{base_url}}/api/v1/payments"
+      }
+    },
+    {
+      "name": "Create Payment — 409 Conflict (same key, different body)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-Key", "value": "{{api_key}}" },
+          { "key": "Idempotency-Key", "value": "{{idempotency_key}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": \"999.00\",\n  \"currency\": \"USD\",\n  \"description\": \"Different body\",\n  \"metadata\": {},\n  \"webhook_url\": \"{{webhook_url}}\"\n}"
+        },
+        "url": "{{base_url}}/api/v1/payments"
+      }
+    },
+    {
+      "name": "Create Payment — 401 Unauthorized",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "X-API-Key", "value": "wrong-key" },
+          { "key": "Idempotency-Key", "value": "{{$randomUUID}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": \"100.00\",\n  \"currency\": \"RUB\",\n  \"description\": \"Test\",\n  \"metadata\": {},\n  \"webhook_url\": \"{{webhook_url}}\"\n}"
+        },
+        "url": "{{base_url}}/api/v1/payments"
+      }
+    },
+    {
+      "name": "Get Payment — 404 Not Found",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{api_key}}" }
+        ],
+        "url": "{{base_url}}/api/v1/payments/00000000-0000-0000-0000-000000000000"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "payment_id", "value": "" },
+    { "key": "idempotency_key", "value": "" }
+  ]
+}
