@@ -39,8 +39,8 @@ webhook-mock-server: ## Run a local webhook mock server that logs incoming webho
 
 ##@ Code quality
 
-.PHONY: check lint lint-fix format mypy
-check: lint mypy test ## Lint, type-check and run all tests
+.PHONY: check lint lint-fix format format-check mypy
+check: lint format-check mypy test ## Lint, check formatting, type-check and run all tests
 
 lint: ## Check code with ruff
 	uv run ruff check $(SRC)
@@ -50,6 +50,9 @@ lint-fix: ## Fix auto-fixable ruff issues
 
 format: ## Format code with ruff
 	uv run ruff format $(SRC)
+
+format-check: ## Check formatting without changing files
+	uv run ruff format --check $(SRC)
 
 mypy: ## Type-check with mypy
 	uv run mypy app/ webhook_mock_server/
@@ -104,10 +107,10 @@ build: ## Build the app image
 	docker compose build
 
 up: ## Start the whole app
-	docker compose up -d
+	docker compose up -d --build
 
 up-mock: ## Start the whole app with the webhook mock server
-	docker compose --profile mock up -d
+	docker compose --profile mock up -d --build
 
 # --profile mock: plain `down` leaves the mock server running and can't remove the network.
 down: ## Stop the whole app

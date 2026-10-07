@@ -128,7 +128,7 @@ Any 2xx response counts as delivered. The same webhook can arrive more than once
 receiver should treat it as idempotent by `payment_id` and `status`.
 
 For local testing, `webhook-mock-server` (port 9000) logs every webhook it receives. It is
-optional: start it with `make up-mock` (`docker compose --profile mock up -d`) and use
+optional: start it with `make up-mock` (`docker compose --profile mock up -d --build`) and use
 `http://webhook-mock-server:9000/webhook`, or with `make webhook-mock-server` and use
 `http://localhost:9000/webhook`. Add `?status=500` to make it fail and trigger retries.
 
@@ -144,7 +144,8 @@ request checks its own status code.
 make test               # everything
 make test-unit          # no external dependencies
 make test-integration   # needs Docker: starts Postgres via testcontainers
-make check              # ruff + mypy + all tests
+make format-check       # ruff format --check
+make check              # ruff (lint + format) + mypy + all tests
 ```
 
 Unit tests cover validation, API key checks, the gateway, webhook delivery and the consumer's
