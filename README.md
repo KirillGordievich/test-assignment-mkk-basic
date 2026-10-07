@@ -14,27 +14,26 @@ Alembic, Docker Compose.
 * uv
 * Docker & Docker Compose
 
-## Running with Docker
+## Running with Docker (recommended)
 
-The compose file reads its settings from `.env-docker`. Create it from the example:
+The compose file reads its settings from `.env-docker`. The example is already set up for
+Docker, so just copy it and start everything:
 
 ```bash
 cp .env.example .env-docker
+docker compose up -d --build   # or: make up
 ```
 
-Don't forget to change the hosts in `.env-docker` to the compose service names:
-`POSTGRES_HOST=postgres` and `RABBITMQ_HOST=rabbitmq`. With `localhost` the containers won't
-reach the database and the broker.
-
-Then start everything:
+To also start the webhook mock server (see [Webhook](#webhook)):
 
 ```bash
-docker compose up -d --build
+docker compose --profile mock up -d --build   # or: make up-mock
 ```
 
 ## Running locally
 
-For local runs the app reads `.env`, where the hosts stay `localhost`:
+For local runs the app reads `.env`. Copy the example and change the hosts to `localhost`:
+`POSTGRES_HOST=localhost` and `RABBITMQ_HOST=localhost`.
 
 ```bash
 cp .env.example .env
@@ -67,7 +66,7 @@ curl -X POST http://localhost:8000/api/v1/payments \
     "currency": "RUB",
     "description": "Order #42",
     "metadata": {"order_id": 42},
-    "webhook_url": "https://webhook.site/your-id"
+    "webhook_url": "http://webhook-mock-server:9000/webhook"
   }'
 ```
 
@@ -103,7 +102,7 @@ curl http://localhost:8000/api/v1/payments/0b9a6d8e-6a0e-4a8b-9a43-2f3f6c1d6c10 
   "description": "Order #42",
   "metadata": {"order_id": 42},
   "status": "succeeded",
-  "webhook_url": "https://webhook.site/your-id",
+  "webhook_url": "http://webhook-mock-server:9000/webhook",
   "created_at": "2026-10-07T12:00:00.000000Z",
   "processed_at": "2026-10-07T12:00:04.000000Z"
 }
@@ -122,12 +121,16 @@ Once the payment is processed, the consumer sends a `POST` to `webhook_url`:
 Any 2xx response counts as delivered. The same webhook can arrive more than once, so the
 receiver should treat it as idempotent by `payment_id` and `status`.
 
+For local testing, `webhook-mock-server` (port 9000) logs every webhook it receives. It is
+optional: start it with `make up-mock` (`docker compose --profile mock up -d`) and use
+`http://webhook-mock-server:9000/webhook`, or with `make webhook-mock-server` and use
+`http://localhost:9000/webhook`. Add `?status=500` to make it fail and trigger retries.
+
 ### Postman
 
 `payments-service.postman_collection.json` and `payments-service.postman_environment.json`
-cover the happy path, idempotent replay, 409, 401 and 404. Set `webhook_url` in the
-environment and run the whole collection: each request checks its own status code.
-                                        |
+cover the happy path, idempotent replay, 409, 401 and 404. Run the whole collection: each
+request checks its own status code.
 
 ## Tests
 
