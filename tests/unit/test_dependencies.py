@@ -6,7 +6,7 @@ from app.deps.auth import verify_api_key
 
 
 async def test_valid_api_key_is_accepted() -> None:
-    await verify_api_key(settings.api_key.get_secret_value())
+    await verify_api_key(settings.auth.api_key.get_secret_value())
 
 
 @pytest.mark.parametrize("api_key", [None, "", "wrong-key", "ключ"])

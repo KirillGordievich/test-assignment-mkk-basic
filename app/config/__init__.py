@@ -1,3 +1,5 @@
+from app.config.app import AppSettings
+from app.config.auth import AuthSettings
 from app.config.consumer import ConsumerSettings
 from app.config.database import DatabaseSettings
 from app.config.expiry import ExpirySettings
@@ -7,6 +9,8 @@ from app.config.rabbitmq import RabbitMQSettings
 from app.config.settings import Settings, settings
 
 __all__ = [
+    "AppSettings",
+    "AuthSettings",
     "ConsumerSettings",
     "DatabaseSettings",
     "ExpirySettings",

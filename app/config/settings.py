@@ -1,6 +1,8 @@
-from pydantic import Field, SecretStr
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.config.app import AppSettings
+from app.config.auth import AuthSettings
 from app.config.consumer import ConsumerSettings
 from app.config.database import DatabaseSettings
 from app.config.expiry import ExpirySettings
@@ -19,10 +21,8 @@ class Settings(BaseSettings):
     gateway: GatewaySettings = Field(default_factory=GatewaySettings)
     outbox: OutboxSettings = Field(default_factory=OutboxSettings)
     expiry: ExpirySettings = Field(default_factory=ExpirySettings)
-
-    api_key: SecretStr
-    log_level: str = "INFO"
-    cors_origins: str = "*"
+    auth: AuthSettings = Field(default_factory=AuthSettings)
+    app: AppSettings = Field(default_factory=AppSettings)
 
 
 settings = Settings()
