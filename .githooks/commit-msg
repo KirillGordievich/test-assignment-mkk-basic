@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# Commitlint-style commit message validation
+# Rules:
+#   type-enum: feat|fix|docs|style|refactor|test|revert|deploy
+#   scope-empty: warning (scope encouraged)
+#   scope-min-length: 3
+#   subject-min-length: 8
+#   header-max-length: 300
+
+commit_msg_file="$1"
+commit_msg=$(head -1 "$commit_msg_file")
+
+# Skip merge commits
+if echo "$commit_msg" | grep -qE '^Merge '; then
+  exit 0
+fi
+
+TYPES="feat|fix|docs|style|refactor|test|revert|deploy"
+
+# Validate format: type(scope): subject  OR  type: subject
+if ! echo "$commit_msg" | grep -qE "^($TYPES)(\(.+\))?: .+"; then
+  echo "ERROR: Invalid commit message format."
+  echo ""
+  echo "Expected: <type>(<scope>): <subject>"
+  echo "Allowed types: feat, fix, docs, style, refactor, test, revert, deploy"
+  echo ""
+  echo "Your message: $commit_msg"
+  exit 1
+fi
+
+# Extract parts
+type=$(echo "$commit_msg" | sed -E "s/^($TYPES).*/\1/")
+scope=$(echo "$commit_msg" | sed -E "s/^($TYPES)\(([^)]*)\):.*/\2/;t;d")
+subject=$(echo "$commit_msg" | sed -E "s/^($TYPES)(\([^)]*\))?: (.*)/\3/")
+
+# header-max-length: 300
+header_len=${#commit_msg}
+if [ "$header_len" -gt 300 ]; then
+  echo "ERROR: Header too long ($header_len chars). Max is 300."
+  exit 1
+fi
+
+# scope-min-length: 3 (only if scope is present)
+if [ -n "$scope" ] && [ ${#scope} -lt 3 ]; then
+  echo "ERROR: Scope '$scope' is too short. Minimum 3 characters."
+  exit 1
+fi
+
+# scope-empty: warning (level 1 = warn)
+if [ -z "$scope" ]; then
+  echo "WARNING: No scope provided. Consider adding one, e.g.: $type(module): $subject"
+fi
+
+# subject-min-length: 8
+if [ ${#subject} -lt 8 ]; then
+  echo "ERROR: Subject '$subject' is too short. Minimum 8 characters."
+  exit 1
+fi
+
+exit 0
