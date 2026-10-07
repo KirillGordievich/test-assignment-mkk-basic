@@ -47,8 +47,9 @@ Then start each process in its own terminal:
 
 ```bash
 make api
-make relay
-make consumer
+make outbox-relay-worker
+make consumer-worker
+make pending-expiry-worker
 ```
 
 ## API
@@ -111,6 +112,10 @@ curl http://localhost:8000/api/v1/payments/0b9a6d8e-6a0e-4a8b-9a43-2f3f6c1d6c10 
 
 Status is `pending` until the consumer finishes, then `succeeded` or `failed`.
 
+A payment can get stuck in `pending` if the database is down while the consumer gives up on
+it. Every minute (`EXPIRY_INTERVAL_S`), the `pending-expiry` worker picks the payments older
+than `EXPIRY_TTL_S` (30 minutes by default) and asks the gateway for their status.
+
 ### Webhook
 
 Once the payment is processed, the consumer sends a `POST` to `webhook_url`:
@@ -123,7 +128,7 @@ Any 2xx response counts as delivered. The same webhook can arrive more than once
 receiver should treat it as idempotent by `payment_id` and `status`.
 
 For local testing, `webhook-mock-server` (port 9000) logs every webhook it receives. It is
-optional: start it with `make up-mock` (`docker compose --profile mock up -d`) and use
+optional: start it with `make up-mock` (`docker compose --profile mock up -d --build`) and use
 `http://webhook-mock-server:9000/webhook`, or with `make webhook-mock-server` and use
 `http://localhost:9000/webhook`. Add `?status=500` to make it fail and trigger retries.
 
@@ -139,10 +144,11 @@ request checks its own status code.
 make test               # everything
 make test-unit          # no external dependencies
 make test-integration   # needs Docker: starts Postgres via testcontainers
-make check              # ruff + mypy + all tests
+make format-check       # ruff format --check
+make check              # ruff (lint + format) + mypy + all tests
 ```
 
 Unit tests cover validation, API key checks, the gateway, webhook delivery and the consumer's
 retry/DLQ routing (with FastStream's test broker). Integration tests run the API and the
 payment processor against a real Postgres: idempotency under concurrent requests, outbox rows,
-redelivery of processed payments, failed webhooks.
+redelivery of processed payments, failed webhooks, expiry of stuck pending payments.

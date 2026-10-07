@@ -2,10 +2,17 @@ import asyncio
 import logging
 import random
 import uuid
+from enum import StrEnum
 
 from app.services.exc import PaymentProcessingError
 
 logger = logging.getLogger(__name__)
+
+
+class GatewayPaymentStatus(StrEnum):
+    SUCCEEDED = "succeeded"
+    PENDING = "pending"
+    NOT_FOUND = "not_found"
 
 
 class PaymentGateway:
@@ -30,3 +37,10 @@ class PaymentGateway:
             raise PaymentProcessingError(f"Processing failed for {payment_id}")
 
         self._processed_ids.add(payment_id)
+
+    async def get_payment_status(self, payment_id: uuid.UUID) -> GatewayPaymentStatus:
+        """Emulated lookup: always NOT_FOUND, i.e. the gateway never charged the payment.
+        A real gateway looks the transaction up and may also answer SUCCEEDED (charged, but
+        we failed to record it) or PENDING (still in progress on its side).
+        """
+        return GatewayPaymentStatus.NOT_FOUND

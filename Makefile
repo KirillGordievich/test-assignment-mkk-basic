@@ -11,7 +11,7 @@ service    ?=
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} \
 		/^##@/ {printf "\n\033[1m%s\033[0m\n", substr($$0, 5)} \
-		/^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+		/^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 ##@ Setup
 
@@ -21,23 +21,26 @@ install: ## Install dependencies, including dev
 
 ##@ Local run (needs `make infra` and `make migrate`)
 
-.PHONY: api relay consumer webhook-mock-server
+.PHONY: api outbox-relay-worker consumer-worker pending-expiry-worker webhook-mock-server
 api: ## Run the API with autoreload
 	uv run uvicorn app.api.main:app --reload --no-access-log
 
-relay: ## Run the outbox relay
+outbox-relay-worker: ## Run the outbox relay
 	uv run faststream run app.worker.outbox_relay:app
 
-consumer: ## Run the payments consumer
+consumer-worker: ## Run the payments consumer
 	uv run faststream run app.worker.consumer:app
+
+pending-expiry-worker: ## Run the job that fails payments stuck in pending
+	uv run python -m app.worker.pending_expiry
 
 webhook-mock-server: ## Run a local webhook mock server that logs incoming webhooks (port 9000)
 	uv run uvicorn webhook_mock_server.main:app --port 9000 --no-access-log
 
 ##@ Code quality
 
-.PHONY: check lint lint-fix format mypy
-check: lint mypy test ## Lint, type-check and run all tests
+.PHONY: check lint lint-fix format format-check mypy
+check: lint format-check mypy test ## Lint, check formatting, type-check and run all tests
 
 lint: ## Check code with ruff
 	uv run ruff check $(SRC)
@@ -47,6 +50,9 @@ lint-fix: ## Fix auto-fixable ruff issues
 
 format: ## Format code with ruff
 	uv run ruff format $(SRC)
+
+format-check: ## Check formatting without changing files
+	uv run ruff format --check $(SRC)
 
 mypy: ## Type-check with mypy
 	uv run mypy app/ webhook_mock_server/
@@ -101,10 +107,10 @@ build: ## Build the app image
 	docker compose build
 
 up: ## Start the whole app
-	docker compose up -d
+	docker compose up -d --build
 
 up-mock: ## Start the whole app with the webhook mock server
-	docker compose --profile mock up -d
+	docker compose --profile mock up -d --build
 
 # --profile mock: plain `down` leaves the mock server running and can't remove the network.
 down: ## Stop the whole app
